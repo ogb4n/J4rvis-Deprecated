@@ -1,2 +1,3 @@
-# whitelist_discordJs
-Whitelist bot that do not let the user enter the server if he is not whitelisted
+# This is J4rvIs
+
+My personnal assistant, News tracker, whitelister and moderation bot for my safe place

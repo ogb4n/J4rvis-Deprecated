@@ -1,10 +1,13 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const Database = require('better-sqlite3');
-const { Client, Partials, Collection, Events, GatewayIntentBits, Guild, GuildMember, ActivityType } = require("discord.js");
+const fetch = require("node-fetch");
+const { Client, Partials, Collection, Events, GatewayIntentBits, EmbedBuilder, Guild, GuildMember, ActivityType } = require("discord.js");
 const { ReactionRole } = require("discordjs-reaction-role");
+const spawn = require("child_process").spawn;
 const { channel } = require("node:diagnostics_channel");
-
+const { exec } = require('child_process');
+const { get } = require("node:http");
 const db = new Database("whitelist.sqlite");
 require("dotenv").config();
 
@@ -18,7 +21,7 @@ const client = new Client({
 	  GatewayIntentBits.GuildMessageReactions,
 	],
 });
-
+// BOT ETH
 const eth_pricebot = new Client({
 	partials: [Partials.Message, Partials.Reaction],
 	intents: [
@@ -27,7 +30,7 @@ const eth_pricebot = new Client({
 	  GatewayIntentBits.GuildMessageReactions,
 	],
 });
-
+// BOT SOL
 const sol_pricebot = new Client({
 	partials: [Partials.Message, Partials.Reaction],
 	intents: [
@@ -36,7 +39,7 @@ const sol_pricebot = new Client({
 	  GatewayIntentBits.GuildMessageReactions,
 	],
 });
-
+// BOT BTC
 const btc_pricebot = new Client({
 	partials: [Partials.Message, Partials.Reaction],
 	intents: [
@@ -45,7 +48,7 @@ const btc_pricebot = new Client({
 	  GatewayIntentBits.GuildMessageReactions,
 	],
 });
-
+// BOT XMR
 const xmr_pricebot = new Client({
 	partials: [Partials.Message, Partials.Reaction],
 	intents: [
@@ -55,24 +58,18 @@ const xmr_pricebot = new Client({
 	],
 });
 
-
 eth_pricebot.once(Events.ClientReady, () => {
 	console.log(`Logged in as ${eth_pricebot.user}!`);
 });
-
 btc_pricebot.once(Events.ClientReady, () => {
 	console.log(`Logged in as ${btc_pricebot.user}!`);
 });
-
 sol_pricebot.once(Events.ClientReady, () => {
 	console.log(`Logged in as ${sol_pricebot.user}!`);
 });
-
 xmr_pricebot.once(Events.ClientReady, () => {
 	console.log(`Logged in as ${sol_pricebot.user}!`);
 });
-
-
 
 // Reaction Role Manager
 const rr = new ReactionRole(client, [
@@ -83,93 +80,111 @@ const rr = new ReactionRole(client, [
 	{ messageId: process.env.ROLE_MESSAGE_ID, reaction: "🤵", roleId: process.env.ROLE_AUTRE},
   ]);
 
+async function sendCVEInformation(cveInfo, channel) {
+  // Set the color of the embed based on the severity of the CVE
+  	let color = 0x2ecc71;
+	let tag = '⚠️';
+	if (cveInfo['Severity'].split(' ')[0] < 6.0) {
+		color = 0xe67e22;
+	} else if (cveInfo['Severity'].split(' ')[0] < 8.0 && cveInfo['Severity'].split(' ')[0] >= 6.0) {
+		color = 0xffa200;
+		tag = '🔥';
+	} else if (cveInfo['Severity'].split(' ')[0] < 10.0 && cveInfo['Severity'].split(' ')[0] >= 8.0) {
+		color = 0xff0000;
+		tag = '💥';
+	}
 
-// function fetchinfos(url, cryptoToken) {
-// 	fetch(url).then(crypto_response => crypto_response.json()).then(data => {
-// 		let crypto_price = data.weightedAvgPrice;
-// 		let crypto_price_change = parseFloat(data.priceChangePercent);
-// 		console.log(cryptoToken + cryptoprice_change);
-// 		crypto_price = parseFloat(crypto_price).toFixed(0);
-// 	})
-// }
+	const embed = new EmbedBuilder()
+		.setColor(color)
 
-function UpdatePrice() {
+		.setTitle(`${tag} ${cveInfo['CVE_ID']} `)
+		.setURL(cveInfo['Link'])
+		.setAuthor({name : `- ${cveInfo['Vendor'].slice(1).replace(/,/g , ' / ')}`})
 
-	//const channel_btc = client.channels.cache.get(process.env.CHANNEL_BITCOIN);
-	fetch(process.env.BTC_URL).then(btc_response => btc_response.json()).then(data => {
-		let btc_price = data.weightedAvgPrice;
-		let price_change = parseFloat(data.priceChangePercent);
-		btc_price = parseFloat(btc_price).toFixed(0);
-		if (price_change < 0) {
-			btc_pricebot.user.setPresence({
-				activities: [{ name: `${data.priceChangePercent}% || ${btc_price} USDT`, type: ActivityType.Custom }],
-				status: 'dnd',});
-		}
-		else if (price_change > 0) {
-			btc_pricebot.user.setPresence({
-				activities: [{ name: `${data.priceChangePercent}% || ${btc_price} USDT`, type: ActivityType.Custom }],
-				status: 'online',
-			});
-		}
-	})
+		.setDescription(` \`\`\`  ${cveInfo['Description'].join(' ')}\`\`\` `)
+		.addFields({ name: 'Produits', value: `- ${cveInfo['Product'].slice(1).replace(/,/g , ' / ')}`})
 
-	//const channel_eth = client.channels.cache.get(process.env.CHANNEL_ETH);
-	fetch(process.env.ETH_URL).then(eth_response => eth_response.json()).then(data => {
-		let eth_price = data.weightedAvgPrice;
-		let price_change = parseFloat(data.priceChangePercent);
-		eth_price = parseFloat(eth_price).toFixed(0);
-		if (price_change < 0) {
-			eth_pricebot.user.setPresence({
-				activities: [{ name: `${data.priceChangePercent}% || ${eth_price} USDT`, type: ActivityType.Custom }],
-				status: 'dnd',});
-				// client.guilds.cache.get(process.env.GUILD_ID).members.cache.get('1115237775432757328').roles.add('Bull');
-		}
-		else if (price_change > 0) {
-			eth_pricebot.user.setPresence({
-				activities: [{ name: `${data.priceChangePercent}% || ${eth_price} USDT`, type: ActivityType.Custom }],
-				status: 'online',});
-		}
-	})
+		.setFooter({ text: "Date : "+ cveInfo['Date'] });
 
-	//const channel_sol = client.channels.cache.get(process.env.CHANNEL_SOL);
-	fetch(process.env.SOL_URL).then(sol_response => sol_response.json()).then(data => {
-		let sol_price = data.weightedAvgPrice;
-		let price_change = parseFloat(data.priceChangePercent);
-		sol_price = parseFloat(sol_price).toFixed(0);
+	channel.send({ embeds: [embed] });
+  }
 
-		if (price_change < 0) {
-			sol_pricebot.user.setPresence({
-				activities: [{ name: `${data.priceChangePercent}% || ${sol_price} USDT`, type: ActivityType.Custom }],
-				status: 'dnd',});
-		}
-		else if (price_change > 0) {
-			sol_pricebot.user.setPresence({
-				activities: [{ name: `${data.priceChangePercent}% || ${sol_price} USDT`, type: ActivityType.Custom }],
-				status: 'online',
-			});
-		}
-	})
+async function getCVEInformation() {
+	// Replace 'python3' with the appropriate command to run Python on your system
+	const pythonProcess = exec('python ../scraper/scrap.py', (error, stdout, stderr) => {
+	  if (error) {
+		console.error(`Error executing Python script: ${error.message}`);
+		return;
+	  }
+	  try {
+		// Parse the JSON output from the Python script
+		const cveInformation = JSON.parse(stdout);
+		
+		if (typeof cveInformation === 'string') {
+			cveInformation = JSON.parse(cveInformation);
+		  }
 
-	//const channel_xmr = client.channels.cache.get(process.env.CHANNEL_XMR);
-	fetch(process.env.XMR_URL).then(xmr_response => xmr_response.json()).then(data => {
-		let xmr_price = data.weightedAvgPrice;
-		let price_change = parseFloat(data.priceChangePercent);
-		xmr_price = parseFloat(xmr_price).toFixed(0);
-		if (price_change < 0) {
-			
-			xmr_pricebot.user.setPresence({
-				activities: [{ name: `${data.priceChangePercent}% || ${xmr_price} USDT`, type: ActivityType.Custom }],
-				status: 'dnd',});
-		}
-		else if (price_change > 0) {
-			xmr_pricebot.user.setPresence({
-				activities: [{ name: `${data.priceChangePercent}% || ${xmr_price} USDT`, type: ActivityType.Custom }],
-				status: 'online',
-			});
-		}
-	})
+		// Output the information to the Discord channel
+		const channel = client.channels.cache.get('1175725609964552192')
+		cveInformation.forEach((cveInfo) => {
+			sendCVEInformation(cveInfo, channel);;
+		});
+	  } catch (parseError) {
+		console.error(`Error parsing JSON: ${parseError.message}`);
+	  }
+	});
+  
+	pythonProcess.on('close', (code) => {
+	  console.log(`Scraper exited with code ${code}`);
+	});
+  }
 
-	console.log('Prices Updated')
+
+// Price Update
+async function updatePrice(bot, url, channelId) {
+
+    const response = await fetch(url);
+    const data = await response.json();
+	const guild = bot.guilds.cache.get(process.env.GUILD_ID);
+	const member = await guild.members.fetch(bot.user.id);
+    const price = parseFloat(data.weightedAvgPrice).toFixed(0);
+    const priceChange = parseFloat(data.priceChangePercent);
+     let status = 'idle';
+
+	 if (priceChange > 0) {
+        status = 'online';
+        // console.log('Adding role for positive price change to ' + member.user.username);
+        if (member && !member.roles.cache.has(process.env.BULL_ROLE)) {
+            member.roles.add(process.env.BULL_ROLE);
+            member.roles.remove(process.env.BEAR_ROLE);
+        } else { member.roles.add(process.env.BULL_ROLE);}
+    } else if (priceChange < 0) {
+        status = 'dnd';
+        // console.log('Removing role for negative price change to '+ member.user.username);
+        if (member && member.roles.cache.has(process.env.BULL_ROLE)) {
+            member.roles.remove(process.env.BULL_ROLE);
+            member.roles.add(process.env.BEAR_ROLE);
+        } else {member.roles.add(process.env.BEAR_ROLE);}
+    }
+
+    bot.user.setPresence({
+        activities: [{ name: `${priceChange}% || ${price} USDT`, type: ActivityType.Custom }],
+        status: status,
+    });
+
+    // Optionally, update a specific channel with the information
+    // const channel = bot.channels.cache.get(channelId);
+    // if (channel) {
+    //     channel.send(`Price update for ${url}: ${priceChange}% || ${price} USDT`);
+    // }
+}
+
+async function UpdatePrice() {
+    updatePrice(btc_pricebot, process.env.BTC_URL, process.env.CHANNEL_BITCOIN);
+    updatePrice(eth_pricebot, process.env.ETH_URL, process.env.CHANNEL_ETH);
+    updatePrice(sol_pricebot, process.env.SOL_URL, process.env.CHANNEL_SOL);
+    updatePrice(xmr_pricebot, process.env.XMR_URL, process.env.CHANNEL_XMR);
+    console.log('Prices Updated');
 }
 
 // Commands Handler 
@@ -195,10 +210,8 @@ client.once(Events.ClientReady, () => {
 	const { exec } = require('child_process');
 	exec('node commands_deployment.js', (err, stdout, stderr) => {
 		if (err) {
-			// node couldn't execute the command
 			return;
 		}
-		// the *entire* stdout and stderr (buffered)
 		console.log(`stdout: ${stdout}`);
 		console.log(`stderr: ${stderr}`);
 	});
@@ -210,6 +223,8 @@ client.once(Events.ClientReady, () => {
 
 	  UpdatePrice();
 	  setInterval(UpdatePrice, 120000);
+	  getCVEInformation();
+	  setInterval(getCVEInformation, 7200000);
 
 	console.log("J4rvIs est connecté !");
 });
@@ -256,8 +271,6 @@ client.on("guildMemberAdd", (member) => {
 });
 
 //bot init
-
-
 
 eth_pricebot.login(process.env.ETH_PRICEBOT);
 sol_pricebot.login(process.env.SOL_PRICEBOT);
